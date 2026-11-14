@@ -251,7 +251,7 @@ function form() {
     ${fld('البريد الإلكتروني','mail','name="email" type="email" class="ltr"')}</div></fieldset>
   <fieldset>${leg('pump','بيانات الطلمبات')}
     <label>عدد الأصناف * <small style="font-size:11px;font-weight:400;color:var(--cy)">يمكنك ادخال عدد الوحدات لكل صنف بالأسفل</small><span class="f" style="max-width:100px">${ico('hash')}<input name="units" type="number" min="1" max="20" value="1" required></span></label>
-    <div class="msg" style="margin-top:10px;font-size:13px;color:var(--warn);border-color:var(--warn)">تنبيه: لن يتم تسجيل أي صنف بدون إدخال أي بيان خاص به، ولن يُحسب ضمن عدد الوحدات.</div>
+    <div class="msg" style="margin-top:10px;font-size:13px;color:var(--warn);border-color:var(--warn)">تنبيه: لن يتم تسجيل أي صنف بدون إدخال بعض البيانات الخاصة به، ولن يُحسب ضمن عدد الوحدات.</div>
     <div id="pumps" style="margin-top:12px"></div>
     <label style="margin-top:4px">عدد الوحدات<span class="f" style="max-width:100px">${ico('hash')}<input id="tot" readonly tabindex="-1" value="1"></span></label></fieldset>
   <fieldset>${leg('cal','موعد الاختبار')}<div class="g">
