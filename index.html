@@ -45,9 +45,15 @@ label{display:block;font-size:14px;color:var(--mute)}
 input,select,textarea{width:100%;font:inherit;color:#0b1620;background:rgba(226,239,246,.94);border:1px solid rgba(159,184,196,.55);border-radius:10px;padding:9px 12px;margin-top:3px}
 select option{background:#eaf3f8;color:#0b1620}
 input::placeholder,textarea::placeholder{color:#5f7684}
+[hidden]{display:none!important}
 .f{position:relative;display:block}
 .f svg{position:absolute;right:11px;top:50%;margin-top:2px;transform:translateY(-50%);width:18px;height:18px;color:var(--gold);pointer-events:none}
 .f input{padding-right:38px}
+.dt input[type=text]{padding-right:12px;padding-left:46px;text-align:left}
+.dt .cb{position:absolute;left:5px;top:50%;margin-top:2px;transform:translateY(-50%);width:34px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;background:#1e5b7d;border:1px solid rgba(255,255,255,.35);border-radius:8px;cursor:pointer;color:#fff}
+.dt .cb:hover{background:#2a7399}
+.dt .cb svg{position:static;margin:0;transform:none;width:19px;height:19px;color:#fff;stroke:#fff}
+.dt .nat{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;padding:0;margin:0;border:0}
 input::placeholder{color:#6f8a97}
 input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:10px 22px;background:linear-gradient(180deg,#efc977,#c9953c);color:#1b2a33;cursor:pointer}
@@ -149,7 +155,9 @@ h3{margin:0 0 8px;color:var(--gold)}
 const SUPABASE_URL = 'https://ugehuwdtdahuaaiwrqfw.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qXRqJF4LgieeqP8SpQS4uQ_7J1otn7F';
 // =================================
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// الجلسة تُحفظ في sessionStorage فتنتهي تلقائياً بغلق التبويب/المتصفح
+try { Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: window.sessionStorage, persistSession: true, autoRefreshToken: true } });
 const app = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dt = d => {
@@ -202,6 +210,7 @@ const I = {
 };
 const ico = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
 const leg = (n, t) => `<legend>${ico(n)}${t}</legend>`;
+const dfld = (t, n, id) => `<label${id ? ` id="${id}"` : ''}>${t}<span class="f dt"><input name="${n}" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" dir="ltr" autocomplete="off"><button type="button" class="cb" aria-label="اختيار من التقويم">${ico('cal')}</button><input type="date" class="nat" tabindex="-1" aria-hidden="true"></span></label>`;
 const fld = (t, n, a) => `<label>${t}<span class="f">${ico(n)}<input ${a}></span></label>`;
 
 function nav(on) {
@@ -216,11 +225,13 @@ function route() {
 addEventListener('hashchange', route);
 
 /* ---------- العميل: نموذج الطلب ---------- */
-const PF = [['type','النوع'],['maker','الشركة المصنعة'],['model','الموديل'],['sn','السيريال نمبر'],
-            ['q','التصرف Q (لتر/ث)'],['h','الرفع H (م)'],['rpm','السرعة RPM']];
+const PF = [['count','العدد'],['type','النوع'],['maker','الشركة المصنعة'],['model','الموديل'],['sn','السيريال نمبر'],
+            ['q','التصرف Q (لتر/ث)'],['h','الرفع H (م)'],['rpm','السرعة RPM'],
+            ['motor_type','نوع المحرك'],['motor_power','قدرة المحرك (وات/حصان)']];
 function pumpBlock(i) {
-  return `<div class="pump" data-i="${i}"><h4>${ico('pump')}الطلمبة ${i+1}</h4><div class="g">` +
-    PF.map(([k,t]) => `<label>${t}<input data-k="${k}"></label>`).join('') + `</div></div>`;
+  const cnt = `<label class="cnt" style="margin-inline-start:auto;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink)">العدد<input data-k="count" type="number" min="1" step="1" value="1" style="width:80px"></label>`;
+  return `<div class="pump" data-i="${i}"><h4>${ico('pump')}الطلمبة ${i+1}${cnt}</h4><div class="g">` +
+    PF.filter(([k]) => k !== 'count').map(([k,t]) => `<label>${t}<input data-k="${k}"></label>`).join('') + `</div></div>`;
 }
 const safeUrl = u => /^https?:\/\//i.test(u || '') ? u : '';
 function parseLinks(t) {
@@ -239,15 +250,14 @@ function form() {
     ${fld('واتساب','wa','name="whatsapp" type="tel" class="ltr"')}
     ${fld('البريد الإلكتروني','mail','name="email" type="email" class="ltr"')}</div></fieldset>
   <fieldset>${leg('pump','بيانات الطلمبات')}
-    <label style="max-width:260px">عدد وحدات الطلمبات *<span class="f">${ico('hash')}<input name="units" type="number" min="1" max="20" value="1" required></span></label>
-    <div id="pumps" style="margin-top:12px"></div></fieldset>
-  <fieldset>${leg('bolt','المحرك')}<div class="g">
-    ${fld('نوع المحرك','bolt','name="motor_type"')}
-    ${fld('قدرة المحرك (وات)','bolt','name="motor_power_w" type="number" min="0" step="any"')}</div></fieldset>
+    <label>عدد الأصناف * <small style="font-size:11px;font-weight:400;color:var(--cy)">يمكنك ادخال عدد الوحدات لكل صنف بالأسفل</small><span class="f" style="max-width:100px">${ico('hash')}<input name="units" type="number" min="1" max="20" value="1" required></span></label>
+    <div class="msg" style="margin-top:10px;font-size:13px;color:var(--warn);border-color:var(--warn)">تنبيه: لن يتم تسجيل أي صنف بدون إدخال أي بيان خاص به، ولن يُحسب ضمن عدد الوحدات.</div>
+    <div id="pumps" style="margin-top:12px"></div>
+    <label style="margin-top:4px">عدد الوحدات<span class="f" style="max-width:100px">${ico('hash')}<input id="tot" readonly tabindex="-1" value="1"></span></label></fieldset>
   <fieldset>${leg('cal','موعد الاختبار')}<div class="g">
     <label>النوع<select name="pref_kind"><option value="date">تاريخ محدد</option><option value="period">فترة زمنية</option></select></label>
-    <label id="l1">التاريخ<input name="date_from" type="date"></label>
-    <label id="l2" hidden>إلى تاريخ<input name="date_to" type="date"></label></div></fieldset>
+    ${dfld('التاريخ','date_from','l1')}
+    ${dfld('إلى تاريخ','date_to','l2')}</div></fieldset>
   <fieldset>${leg('clip','روابط المرفقات')}
     <label>كتالوجات، منحنيات أداء، صور، مستندات<br><small>ارفع الملفات على Google Drive أو OneDrive أو أي خدمة، واجعل الرابط متاحاً لأي شخص لديه الرابط، ثم الصق الروابط هنا (رابط في كل سطر، ويمكنك كتابة اسم قبله، بحد أقصى 10 روابط)</small>
     <textarea id="links" rows="3" dir="auto" placeholder="كتالوج الطلمبة https://drive.google.com/..."></textarea></label></fieldset>
@@ -271,8 +281,30 @@ function form() {
     const n = Math.min(Math.max(+f.units.value || 1, 1), 20);
     while (P.children.length < n) P.insertAdjacentHTML('beforeend', pumpBlock(P.children.length));
     while (P.children.length > n) P.lastElementChild.remove();
+    total();
   };
+  // الصنف الفاضي (من غير أي بيان غير العدد) لا يُحسب ولا يُرسل
+  const hasData = b => [...b.querySelectorAll('input')].some(i => i.dataset.k !== 'count' && i.value.trim() !== '');
+  const total = () => { $('#tot').value = [...P.children].filter(hasData).reduce((s, b) => s + Math.max(parseInt(b.querySelector('[data-k="count"]').value, 10) || 1, 1), 0); };
+  P.addEventListener('input', total);
   f.units.oninput = sync; sync();
+  const fmtD = v => { const d = v.replace(/\D/g, '').slice(0, 8); return d.slice(0, 2) + (d.length > 2 ? '/' + d.slice(2, 4) : '') + (d.length > 4 ? '/' + d.slice(4) : ''); };
+  document.querySelectorAll('.dt').forEach(w => {
+    const tx = w.querySelector('input[type=text]'), nat = w.querySelector('.nat');
+    tx.addEventListener('input', () => { tx.value = fmtD(tx.value); });
+    nat.addEventListener('change', () => { if (nat.value) { const [y, m, d] = nat.value.split('-'); tx.value = `${d}/${m}/${y}`; } });
+    w.querySelector('.cb').onclick = () => {
+      const m = tx.value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); nat.value = m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+      try { nat.showPicker(); } catch (e) { nat.focus(); nat.click(); }
+    };
+  });
+  const isoD = s => {
+    s = s.trim(); if (!s) return '';
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/), dt = m && new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+    if (!m || dt.getUTCDate() !== +m[1] || dt.getUTCMonth() !== +m[2] - 1) throw new Error('صيغة التاريخ لازم تكون يوم/شهر/سنة، مثال: 25/12/2026');
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  };
+  $('#l2').hidden = true;
   f.pref_kind.onchange = () => {
     const p = f.pref_kind.value === 'period';
     $('#l2').hidden = !p; $('#l1').firstChild.textContent = p ? 'من تاريخ' : 'التاريخ';
@@ -285,9 +317,13 @@ function form() {
       if (nl.length > 10) throw new Error('الحد الأقصى 10 روابط');
       const atts = parseLinks($('#links').value);
       if (atts.includes(null)) throw new Error('كل سطر في روابط المرفقات لازم يحتوي على رابط يبدأ بـ http');
-      const pumps = [...P.children].map(b => Object.fromEntries([...b.querySelectorAll('input')].map(i => [i.dataset.k, i.value])));
-      const p = Object.fromEntries(['client_name','contact_name','phone','whatsapp','email','units','motor_type','motor_power_w','pref_kind','date_from','date_to','notes'].map(k => [k, f[k].value]));
-      const { data, error } = await sb.rpc('submit_request', { p: { ...p, pumps, attachments: atts } });
+      const pumps = [...P.children].filter(hasData).map(b => Object.fromEntries([...b.querySelectorAll('input')].map(i => [i.dataset.k, i.value])));
+      if (!pumps.length) throw new Error('ادخل بيانات صنف واحد على الأقل (الأصناف الفاضية بتتشال تلقائياً)');
+      const p = Object.fromEntries(['client_name','contact_name','phone','whatsapp','email','pref_kind','notes'].map(k => [k, f[k].value]));
+      p.date_from = isoD(f.date_from.value); p.date_to = f.pref_kind.value === 'period' ? isoD(f.date_to.value) : '';
+      pumps.forEach(x => { x.count = Math.max(parseInt(x.count, 10) || 1, 1); });
+      const units = pumps.reduce((s, x) => s + x.count, 0);
+      const { data, error } = await sb.rpc('submit_request', { p: { ...p, units, motor_type: '', motor_power_w: '', pumps, attachments: atts } });
       if (error) throw error;
       app.innerHTML = `<div class="box"><h3>تم تسجيل الطلب</h3>
         <p>رقم الطلب</p><div class="code">${esc(data.serial)}</div>
@@ -451,7 +487,7 @@ function printReq(r) {
     <h5>بيانات الطلمبات والمحرك (عدد الوحدات: ${esc(r.units)})</h5>
     <table class="pp"><tr><th>#</th>${PF.map(([, t]) => `<th>${t}</th>`).join('')}</tr>
     ${(r.pumps || []).map((p, i) => `<tr><td>${i + 1}</td>${PF.map(([k]) => `<td>${esc(p[k])}</td>`).join('')}</tr>`).join('')}</table>
-    <table style="margin-top:3px"><tr><th>نوع المحرك</th><td>${v(r.motor_type)}</td><th>قدرة المحرك (وات)</th><td>${v(r.motor_power_w)}</td></tr></table>
+    ${(r.motor_type || r.motor_power_w) ? `<table style="margin-top:3px"><tr><th>نوع المحرك</th><td>${v(r.motor_type)}</td><th>قدرة المحرك (وات)</th><td>${v(r.motor_power_w)}</td></tr></table>` : ''}
     <h5>موعد الاختبار والملاحظات</h5>
     <table><tr><th>موعد الاختبار المطلوب من العميل</th><td>${when}</td></tr>
     <tr><th>ملاحظات العميل</th><td class="pre">${v(r.notes)}</td></tr>
@@ -486,7 +522,7 @@ async function detail(r) {
     ${sec('pump', 'بيانات الطلمبات والمحرك', `<p style="margin:0 0 8px">عدد الوحدات: <b>${r.units}</b></p>
       <div class="tw" style="margin-bottom:12px"><table><tr><th>#</th>${PF.map(([, t]) => `<th>${t}</th>`).join('')}</tr>
       ${(r.pumps || []).map((p, i) => `<tr><td>${i + 1}</td>${PF.map(([k]) => `<td>${esc(p[k])}</td>`).join('')}</tr>`).join('')}</table></div>
-      <dl><dt>نوع المحرك</dt><dd>${esc(r.motor_type) || '—'}</dd><dt>قدرة المحرك (وات)</dt><dd>${esc(r.motor_power_w ?? '—')}</dd></dl>`)}
+      ${(r.motor_type || r.motor_power_w) ? `<dl><dt>نوع المحرك</dt><dd>${esc(r.motor_type) || '—'}</dd><dt>قدرة المحرك (وات)</dt><dd>${esc(r.motor_power_w ?? '—')}</dd></dl>` : ''}`)}
     ${sec('cal', 'موعد الاختبار المطلوب من العميل', r.pref_kind === 'period' ? `من ${dd(r.date_from)} إلى ${dd(r.date_to)}` : (dd(r.date_from) || '—'))}
     ${sec('note', 'ملاحظات وروابط المرفقات', `<dl><dt>ملاحظات</dt><dd style="white-space:pre-wrap">${esc(r.notes) || '—'}</dd><dt>روابط المرفقات</dt><dd>${att.join('<br>') || '—'}</dd></dl>`)}
     <div class="g"><label>الحالة<select id="st">${['جديد','مجدول','ملغي','منفذ'].map(s => `<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select></label>
